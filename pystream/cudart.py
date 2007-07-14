@@ -455,9 +455,9 @@ _cudaGetChannelDesc.restype = error_t
 _cudaGetChannelDesc.argtypes = [POINTER(ChannelFormatDesc), POINTER(CudaArray)]
 
 def getChannelDesc(arrayPtr):
-    assert isinstance(array, POINTER(CudaArray)), "array must be a POINTER(CudaArray)"
+    assert isinstance(arrayPtr, POINTER(CudaArray)), "array must be a POINTER(CudaArray)"
     cd = ChannelFormatDesc()
-    status = _cudaGetChannelDesc(byref(cd), array)
+    status = _cudaGetChannelDesc(byref(cd), arrayPtr)
     _checkCudaStatus(status)
     return cd
 
