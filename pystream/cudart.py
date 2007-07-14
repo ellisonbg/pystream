@@ -291,7 +291,20 @@ def free(devPtr):
 # CudaArray
 class CudaArray(Structure):
     _fields = []
-    
+
+# enum for the f attribute of ChannelFormatDesc
+cudaChannelFormatKindSigned = 0
+cudaChannelFormatKindUnsigned = 1
+cudaChannelFormatKindFloat = 2
+ 
+# cudaChannelFormatDesc
+class ChannelFormatDesc(Structure):
+    _fields_ = [("x", c_int),
+                ("y", c_int),
+                ("z", c_int),
+                ("w", c_int),
+                ("f", c_int)]
+
 # cudaMallocArray
 _cudaMallocArray = libcudart.cudaMallocArray
 _cudaMallocArray.restype = error_t
@@ -420,19 +433,6 @@ def cudaMemcpy(dst, dpitch, src, spitch, width, height, kind):
 #----------------------------------------------------------------------------
 # D.4 Texture Reference Management
 #----------------------------------------------------------------------------
-
-# enum for the f attribute of ChannelFormatDesc
-cudaChannelFormatKindSigned = 0
-cudaChannelFormatKindUnsigned = 1
-cudaChannelFormatKindFloat = 2
- 
-# cudaChannelFormatDesc
-class ChannelFormatDesc(Structure):
-    _fields_ = [("x", c_int),
-                ("y", c_int),
-                ("z", c_int),
-                ("w", c_int),
-                ("f", c_int)]
 
 # cudaCreateChannelDesc
 _cudaCreateChannelDesc = libcudart.cudaCreateChannelDesc
