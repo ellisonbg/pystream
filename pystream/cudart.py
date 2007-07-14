@@ -451,7 +451,7 @@ def createChannelDesc(x, y, z, w, f):
 
 # cudaGetChannelDesc
 _cudaGetChannelDesc = libcudart.cudaGetChannelDesc
-_cudaGetChannelDesc.restype = cudaGetChannelDesc
+_cudaGetChannelDesc.restype = error_t
 _cudaGetChannelDesc.argtypes = [c_int, c_int, c_int, c_int, c_int]
 
 def getChannelDesc(array):
