@@ -288,9 +288,34 @@ def free(devPtr):
     status = _cudaFree(devPtr)
     _checkCudaStatus(status)
 
+# CudaArray
+class CudaArray(Structure):
+    _fields = []
+    
 # cudaMallocArray
-# cudaFreeArray
+_cudaMallocArray = libcudart.cudaMallocArray
+_cudaMallocArray.restype = error_t
+_cudaMallocArray.argtypes = [POINTER(POINTER(CudaArray)), POINTER(ChannelFormatDesc), 
+    c_size_t, c_size_t]
 
+def mallocArray(channelFormatDesc, width, height):
+    _checkSizet('width', width)
+    _checkSizet('height', height)
+    assert isinstance(channelFormatDesc, ChannelFormatDesc), "Invalid type for channelFormatDesc"
+    cudaArrayPointer = POINTER(CudaArray)()
+    status = _cudaMallocArray(byref(cudaArrayPointer), byref(channelFormatDesc), width, height)
+    _checkCudaStatus(status)
+    return cudaArrayPointer
+
+# cudaFreeArray
+_cudaFreeArray = libcudart.cudaFreeArray
+_cudaFreeArray.restype = error_t
+_cudaFreeArray.argtypes = [POINTER(CudaArray)]
+
+def freeArray(arrayPtr):
+    assert isinstance(arrayPtr, POINTER(CudaArray)), "arrayPtr must be a POINTER(CudaArray)"
+    status = _cudaFreeArray(arrayPtr)
+    _checkCudaStatus(status)    
 
 # cudaMallocHost
 _cudaMallocHost = libcudart.cudaMallocHost
@@ -379,7 +404,6 @@ def cudaMemcpy(dst, dpitch, src, spitch, width, height, kind):
     status = _cudaMemcpy2D(dst, src, count, kind)
     _checkCudaStatus(status)
 
-# These rely on the Texture Reference stuff below
 # cudaMemcpyToArray
 # cudaMmcpy2DToArray
 # cudaMemcpyFromArray
@@ -397,8 +421,47 @@ def cudaMemcpy(dst, dpitch, src, spitch, width, height, kind):
 # D.4 Texture Reference Management
 #----------------------------------------------------------------------------
 
+# enum for the f attribute of ChannelFormatDesc
+cudaChannelFormatKindSigned = 0
+cudaChannelFormatKindUnsigned = 1
+cudaChannelFormatKindFloat = 2
+ 
+# cudaChannelFormatDesc
+class ChannelFormatDesc(Structure):
+    _fields_ = [("x", c_int),
+                ("y", c_int),
+                ("z", c_int),
+                ("w", c_int),
+                ("f", c_int)]
+
 # cudaCreateChannelDesc
+_cudaCreateChannelDesc = libcudart.cudaCreateChannelDesc
+_cudaCreateChannelDesc.restype = ChannelFormatDesc
+_cudaCreateChannelDesc.argtypes = [c_int, c_int, c_int, c_int, c_int]
+
+def createChannelDesc(x, y, z, w, f):
+    _checkInt('x',x)
+    _checkInt('y',y)
+    _checkInt('z',z)
+    _checkInt('f',f)
+    assert f in [0,1,2], "The format f must be 0,1 or 2."
+    cd = _cudaCreateChannelDesc(x,y,z,w,f)
+    return cd
+
+
 # cudaGetChannelDesc
+_cudaGetChannelDesc = libcudart.cudaGetChannelDesc
+_cudaGetChannelDesc.restype = cudaGetChannelDesc
+_cudaGetChannelDesc.argtypes = [c_int, c_int, c_int, c_int, c_int]
+
+def getChannelDesc(array):
+    assert isinstance(array, CudaArray), "array must be a CudaArray struct."
+    cd = ChannelFormatDesc()
+    status = _cudaGetChannelDesc(byref(cd), byref(array))
+    _checkCudaStatus(status)
+    return cd
+
+# These appear to require templated code...
 # cudaGetTextureReference
 # cudaBindTexture
 # cudaBindTextureToArray
