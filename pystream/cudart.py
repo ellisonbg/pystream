@@ -452,12 +452,12 @@ def createChannelDesc(x, y, z, w, f):
 # cudaGetChannelDesc
 _cudaGetChannelDesc = libcudart.cudaGetChannelDesc
 _cudaGetChannelDesc.restype = error_t
-_cudaGetChannelDesc.argtypes = [c_int, c_int, c_int, c_int, c_int]
+_cudaGetChannelDesc.argtypes = [POINTER(ChannelFormatDesc), POINTER(CudaArray)]
 
-def getChannelDesc(array):
-    assert isinstance(array, CudaArray), "array must be a CudaArray struct."
+def getChannelDesc(arrayPtr):
+    assert isinstance(array, POINTER(CudaArray)), "array must be a POINTER(CudaArray)"
     cd = ChannelFormatDesc()
-    status = _cudaGetChannelDesc(byref(cd), byref(array))
+    status = _cudaGetChannelDesc(byref(cd), array)
     _checkCudaStatus(status)
     return cd
 
