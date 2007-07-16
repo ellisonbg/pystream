@@ -170,9 +170,9 @@ class dim3(Structure):
         self.y = y
         self.z = z
     
-    _fields = [('x', c_uint),
-               ('y', c_uint),
-               ('z', c_uint)]
+    _fields_ = [('x', c_uint),
+                ('y', c_uint),
+                ('z', c_uint)]
 
 
 #----------------------------------------------------------------------------
