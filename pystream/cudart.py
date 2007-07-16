@@ -252,12 +252,15 @@ _cudaMalloc = libcudart.cudaMalloc
 _cudaMalloc.restype = error_t
 _cudaMalloc.argtypes = [POINTER(c_void_p), c_size_t]
 
-def malloc(count):
+def malloc(count, ctype=None):
     _checkSizet('count', count)
     assert count > 0, "count must be > 0"
     devPtr = c_void_p()
     status = _cudaMalloc(byref(devPtr), count)
     _checkCudaStatus(status)
+    if ctype is not None:
+        # Cast it to the appropriate pointer type.
+        devPtr = cast(devPtr, POINTER(ctype))
     return devPtr
 
 
@@ -405,7 +408,7 @@ _cudaMemcpy2D.restype = error_t
 _cudaMemcpy2D.argtypes = [c_void_p, c_size_t, c_void_p, c_size_t, 
     c_size_t, c_size_t, c_int]
 
-def cudaMemcpy(dst, dpitch, src, spitch, width, height, kind):
+def cudaMemcpy2D(dst, dpitch, src, spitch, width, height, kind):
     dst = _castToVoidp('dst', dst)
     _checkSizet('dpitch', dpitch)
     src = _castToVoidp('src', src)
