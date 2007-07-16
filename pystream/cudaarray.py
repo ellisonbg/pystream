@@ -54,8 +54,8 @@ class CudaArray(object):
         if not self.allocated:
             raise Exception("Must first allocate")
         a = numpy.empty(self.size, dtype=self.dtype)
-        cudart.cudaMemcpy(a.ctypes.data, self.data, self.nbytes,
-            cudart.cudaMemcpyDeviceToHost)
+        cudart.memcpy(a.ctypes.data, self.data, self.nbytes,
+            cudart.memcpyDeviceToHost)
         return a
 
     def setWithArray(self, a):
@@ -64,8 +64,8 @@ class CudaArray(object):
         a = numpy.ascontiguousarray(a, dtype=None)
         assert a.size == self.size, "size must be the same"
         assert a.dtype == self.dtype, "dtype must be the same"
-        cudart.cudaMemcpy(self.data, a.ctypes.data, self.nbytes,
-            cudart.cudaMemcpyHostToDevice)
+        cudart.memcpy(self.data, a.ctypes.data, self.nbytes,
+            cudart.memcpyHostToDevice)
 
 class RawCudaArray(CudaArray):
 
@@ -74,7 +74,7 @@ class RawCudaArray(CudaArray):
         self.alloc()
 
 class CudaArrayFromArray(CudaArray):
-    def __init__(self, a, dtype=None):
+    def __init__(self, a, dtype):
         a = numpy.ascontiguousarray(a, dtype=dtype)
         CudaArray.__init__(self, a.size, a.dtype)
         self.alloc()
