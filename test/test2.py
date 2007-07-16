@@ -1,4 +1,4 @@
-import cublas
+from pystream import cublas
 from ctypes import *
 import numpy
 cublas.cublasInit()
@@ -8,3 +8,4 @@ cublas.cublasSetVector(10,c_int,a.ctypes.data,1,dp,1)
 a.fill(0)
 cublas.cublasGetVector(10,c_int,dp,1,a.ctypes.data,1)
 print a
+cublas.cublasShutdown()
