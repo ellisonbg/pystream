@@ -120,12 +120,49 @@ class DeviceProp(Structure):
        self.totalConstMem, self.major, self.minor,
        float(self.clockRate)/1.0e6, self.textureAlignment)
 
+# CudaArray
+class CudaArray(Structure):
+    _fields = []
+
+# enum for the f attribute of ChannelFormatDesc
+cudaChannelFormatKindSigned = 0
+cudaChannelFormatKindUnsigned = 1
+cudaChannelFormatKindFloat = 2
+ 
+# cudaChannelFormatDesc
+class ChannelFormatDesc(Structure):
+    _fields_ = [("x", c_int),
+                ("y", c_int),
+                ("z", c_int),
+                ("w", c_int),
+                ("f", c_int)]
 
 # cudaError_t
 error_t = c_int
 
 class UncastablePointerError(Exception):
     pass
+
+class InvalidDim3(Exception):
+    pass
+
+# struct dim3
+# {
+#     unsigned int x, y, z;
+# #if defined(__cplusplus)
+#     dim3(unsigned int x = 1, unsigned int y = 1, unsigned int z = 1) : x(x), y(y), z(z) {}
+#     dim3(uint3 v) : x(v.x), y(v.y), z(v.z) {}
+#     operator uint3(void) { uint3 t; t.x = x; t.y = y; t.z = z; return t; }
+# #endif /* __cplusplus */
+# };
+class dim3(Structure):
+    
+    def __init__(self, x, y=1, z=1):
+    
+    _fields = [('x', c_uint),
+               ('y', c_uint),
+               ('z', c_uint)]
+
 
 #----------------------------------------------------------------------------
 # Utility functions
@@ -153,6 +190,31 @@ def _castToVoidp(name, value):
 def _checkInt(name, value):
     assert isinstance(value, int), "%s must be an int" % name
 
+def _checkPointerCudaArray(name, value):
+    assert isinstance(value, POINTER(CudaArray)), "%s must be a POINTER(CudaArray)" % name
+
+def _checkMemcpyKind(name, value):
+    assert value in range(4), "%s must be in the set (0,1,2,3)" % name
+
+def _checkCharp(name, value):
+    assert isinstance(value, string), "%s must be a string" % name
+
+def _convertToDim3(t):
+    assert isinstance(t, (list, tuple, int)), "type must be a list/tuple/int"
+    assert len(t) in (1,2,3), "a dim3 must have length of 1,2 or 3"
+    if isinstance(t, int):
+        d3 = dim3(t)
+        return d3
+    else:
+        if len(t)==1:
+            d3 = dim3(t[0])
+        elif len(t)==2:
+            d3 = dim3(t[0], t[1])
+        elif len(t)==3:
+            d3 = dim3(t[0], t[1], t[2])
+        else:
+            raise InvalidDim3("%r could not be converted to a dim3 object" % t)
+        return d3
 #----------------------------------------------------------------------------
 # D.1 Device Management
 #----------------------------------------------------------------------------
@@ -291,22 +353,6 @@ def free(devPtr):
     status = _cudaFree(devPtr)
     _checkCudaStatus(status)
 
-# CudaArray
-class CudaArray(Structure):
-    _fields = []
-
-# enum for the f attribute of ChannelFormatDesc
-cudaChannelFormatKindSigned = 0
-cudaChannelFormatKindUnsigned = 1
-cudaChannelFormatKindFloat = 2
- 
-# cudaChannelFormatDesc
-class ChannelFormatDesc(Structure):
-    _fields_ = [("x", c_int),
-                ("y", c_int),
-                ("z", c_int),
-                ("w", c_int),
-                ("f", c_int)]
 
 # cudaMallocArray
 _cudaMallocArray = libcudart.cudaMallocArray
@@ -323,15 +369,17 @@ def mallocArray(channelFormatDesc, width, height):
     _checkCudaStatus(status)
     return cudaArrayPointer
 
+
 # cudaFreeArray
 _cudaFreeArray = libcudart.cudaFreeArray
 _cudaFreeArray.restype = error_t
 _cudaFreeArray.argtypes = [POINTER(CudaArray)]
 
 def freeArray(arrayPtr):
-    assert isinstance(arrayPtr, POINTER(CudaArray)), "arrayPtr must be a POINTER(CudaArray)"
+    _checkPointerCudeArray('arrayPtr', arrayPtr)
     status = _cudaFreeArray(arrayPtr)
     _checkCudaStatus(status)    
+
 
 # cudaMallocHost
 _cudaMallocHost = libcudart.cudaMallocHost
@@ -397,7 +445,7 @@ def cudaMemcpy(dstPtr, srcPtr, count, kind):
     _checkVoidp('srcPtr', srcPtr)
     _checkSizet('count', count)
     _checkInt('kind', kind)
-    assert kind in range(4), "kind must be in the set (0,1,2,3)"
+    _checkMemcpyKind('kind', kind)
     status = _cudaMemcpy(dstPtr, srcPtr, count, kind)
     _checkCudaStatus(status)
 
@@ -416,22 +464,218 @@ def cudaMemcpy2D(dst, dpitch, src, spitch, width, height, kind):
     _checkSizet('width', width)
     _checkSizet('height', height)
     _checkInt('kind', kind)
-    assert kind in range(4), "kind must be in the set (0,1,2,3)"
+    _checkMemcpyKind('kind', kind)
     status = _cudaMemcpy2D(dst, src, count, kind)
     _checkCudaStatus(status)
 
 # cudaMemcpyToArray
-# cudaMmcpy2DToArray
-# cudaMemcpyFromArray
-# cudaMemcpy2DFromArray
-# cudaMemcpyArrayToArray
-# cudaMemcpy2DArrayToArray
+# cudaError_t cudaMemcpyToArray(struct cudaArray* dstArray, 
+#                               size_t dstX, size_t dstY, 
+#                               const void* src, size_t count, 
+#                               enum cudaMemcpyKind kind); 
+_cudaMemcpyToArray = libcudart.cudaMemcpyToArray
+_cudaMemcpyToArray.restype = error_t
+_cudaMemcpyToArray.argtypes = [POINTER(CudaArray), c_size_t, c_size_t,
+    c_void_p, c_size_t, c_int]
 
-# These are templated...
+def memcpyToArray(dstArray, dstX, dstY, src, count, kind):
+    _checkPointerCudaArray('dstArray', dstArray)
+    _checkSizet('dstX', dstX)
+    _checkSizet('dstY', dstY)
+    src = _castToVoidp('src', src)
+    _checkSizet('count', count)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpyToArray(dstArray, dstX, dstY, src, count, kind)
+    _checkCudaStatus(status)
+
+# cudaMmcpy2DToArray
+# cudaError_t cudaMemcpy2DToArray(struct cudaArray* dstArray, 
+#                                 size_t dstX, size_t dstY, 
+#                                 const void* src, size_t spitch, 
+#                                 size_t width, size_t height, enum cudaMemcpyKind kind);
+_cudaMemcpy2DToArray = libcudart.cudaMemcpy2DToArray
+_cudaMemcpy2DToArray.restype = error_t
+_cudaMemcpy2DToArray.argtypes = [POINTER(CudaArray), c_size_t, c_size_t,
+    c_void_p, c_size_t, c_size_t, c_size_t, c_int]
+
+def memcpy2DToArray(dstArray, dstX, dstY, src, spitch, width, height, kind):
+    _checkPointerCudaArray('dstArray', dstArray)
+    _checkSizet('dstX', dstX)
+    _checkSizet('dstY', dstY)
+    src = _castToVoidp('src', src)
+    _checkSizet('spitch', spitch)
+    _checkSizet('width', width)
+    _checkSizet('height', height)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpy2DToArray(dstArray, dstX, dstY, src, spitch, width, height, kind)
+    _checkCudaStatus(status)
+
+
+# cudaMemcpyFromArray
+# cudaError_t cudaMemcpyFromArray(void* dst, 
+#                                 const struct cudaArray* srcArray, 
+#                                 size_t srcX, size_t srcY, 
+#                                 size_t count, 
+#                                 enum cudaMemcpyKind kind); 
+_cudaMemcpyFromArray = libcudart.cudaMemcpyFromArray
+_cudaMemcpyFromArray.restype = error_t
+_cudaMemcpyFromArray.argtypes = [c_void_p, POINTER(CudaArray), c_size_t, c_size_t,
+    c_size_t, c_int]
+
+def memcpyFromArray(dst, srcArray, srcX, srcY, count, kind):
+    dst = _castToVoidp('dst', dst)
+    _checkPointerCudaArray('srcArray', srcArray)
+    _checkSizet('srcX', srcX)
+    _checkSizet('srcY', srcY)
+    _checkSizet('count', count)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpyFromArray(dst, srcArray, srcX, srcY, count, kind)
+    _checkCudaStatus(status)
+
+
+# cudaMemcpy2DFromArray
+# cudaError_t cudaMemcpy2DFromArray(void* dst, size_t dpitch, 
+#                                  const struct cudaArray* srcArray, 
+#                                   size_t srcX, size_t srcY, 
+#                                   size_t width, size_t height, 
+#                                   enum cudaMemcpyKind kind); 
+_cudaMemcpy2DFromArray = libcudart.cudaMemcpy2DFromArray
+_cudaMemcpy2DFromArray.restype = error_t
+_cudaMemcpy2DFromArray.argtypes = [c_void_p, c_size_t, POINTER(CudaArray), c_size_t, c_size_t,
+    c_size_t, c_size_t, c_int]
+
+def memcpy2DFromArray(dst, dpitch, srcArray, srcX, srcY, width, height, kind):
+    dst = _castToVoidp('dst', dst)
+    _checkSizet('dpitch', dpitch)
+    _checkPointerCudaArray('srcArray', srcArray)
+    _checkSizet('srcX', srcX)
+    _checkSizet('srcY', srcY)
+    _checkSizet('width', width)
+    _checkSizet('height', height)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpy2DFromArray(dst, dpitch, srcArray, srcX, srcY, width, height, kind)
+    _checkCudaStatus(status)
+
+
+# cudaMemcpyArrayToArray
+# cudaError_t cudaMemcpyArrayToArray(struct cudaArray* dstArray, 
+#                                    size_t dstX, size_t dstY, 
+#                                  const struct cudaArray* srcArray, 
+#                                    size_t srcX, size_t srcY, 
+#                                    size_t count, 
+#                                    enum cudaMemcpyKind kind); 
+_cudaMemcpyArrayToArray = libcudart.cudaMemcpyArrayToArray
+_cudaMemcpyArrayToArray.restype = error_t
+_cudaMemcpyArrayToArray.argtypes = [POINTER(CudaArray), c_size_t, c_size_t,
+    POINTER(CudaArray), c_size_t, c_size_t, c_size_t, c_int]
+
+def memcpyArrayToArray(dstArray, dstX, dstY, srcArray, srcX, srcY, count, kind):
+    _checkPointerCudaArray('dstArray', dstArray)
+    _checkSizet('dstX', dstX)
+    _checkSizet('dstY', dstY)
+    _checkPointerCudaArray('srcArray', srcArray)
+    _checkSizet('srcX', srcX)
+    _checkSizet('srcY', srcY)
+    _checkSizet('count', count)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpyArrayToArray(dstArray, dstX, dstY, srcArray, srcX, srcY, count, kind)
+    _checkCudaStatus(status)
+
+
+# cudaMemcpy2DArrayToArray
+# cudaError_t cudaMemcpy2DArrayToArray(struct cudaArray* dstArray, 
+#                                      size_t dstX, size_t dstY, 
+#                                  const struct cudaArray* srcArray, 
+#                                      size_t srcX, size_t srcY, 
+#                                      size_t width, size_t height, enum cudaMemcpyKind kind);
+_cudaMemcpy2DArrayToArray = libcudart.cudaMemcpy2DArrayToArray
+_cudaMemcpy2DArrayToArray.restype = error_t
+_cudaMemcpy2DArrayToArray.argtypes = [POINTER(CudaArray), c_size_t, c_size_t,
+    POINTER(CudaArray), c_size_t, c_size_t, c_size_t, c_size_t, c_int]
+
+def memcpy2DArrayToArray(dstArray, dstX, dstY, srcArray, srcX, srcY, width, height, kind):
+    _checkPointerCudaArray('dstArray', dstArray)
+    _checkSizet('dstX', dstX)
+    _checkSizet('dstY', dstY)
+    _checkPointerCudaArray('srcArray', srcArray)
+    _checkSizet('srcX', srcX)
+    _checkSizet('srcY', srcY)
+    _checkSizet('width', width)
+    _checkSizet('height', height)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpy2DArrayToArray(dstArray, dstX, dstY, srcArray, srcX, srcY, 
+        width, height, kind)
+    _checkCudaStatus(status)
+
+
 # cudaMemcpyToSymbol
+# extern __host__ cudaError_t CUDARTAPI cudaMemcpyToSymbol(const char *symbol, const void *src, 
+#     size_t count, size_t offset __dv(0), enum cudaMemcpyKind kind __dv(cudaMemcpyHostToDevice));
+_cudaMemcpyToSymbol = libcudart.cudaMemcpyToSymbol
+_cudaMemcpyToSymbol.restype = error_t
+_cudaMemcpyToSymbol.argtypes = [c_char_p, c_void_p, c_size_t, c_size_t, c_int]
+
+def memcpyToSymbol(symbol, src, count, offset=0, kind=memcpyHostToDevice):
+    _checkCharp('symbol', symbol)
+    src = _castToVoidp('src', src)
+    _checkSizet('count', count)
+    _checkSizet('offset', offset)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpyToSymbol(symbol, src, count, offset, kind)
+    _checkCudaStatus(status)
+
+
 # cudaMemcpyFromSymbol
+# extern __host__ cudaError_t CUDARTAPI cudaMemcpyFromSymbol(void *dst, const char *symbol, size_t count, 
+#     size_t offset __dv(0), enum cudaMemcpyKind kind __dv(cudaMemcpyDeviceToHost));
+_cudaMemcpyFromSymbol = libcudart.cudaMemcpyFromSymbol
+_cudaMemcpyFromSymbol.restype = error_t
+_cudaMemcpyFromSymbol.argtypes = [c_void_p, c_char_p, c_size_t, c_size_t, c_int]
+
+def memcpyFromSymbol(dst, symbol, count, offset=0, kind=memcpyDeviceToHost):
+    dst = _castToVoidp('dst', dst)
+    _checkCharp('symbol', symbol)
+    _checkSizet('count', count)
+    _checkSizet('offset', offset)
+    _checkInt('kind', kind)
+    _checkMemcpyKind('kind', kind)
+    status = _cudaMemcpyFromSymbol(dst, symbol, count, offset, kind)
+    _checkCudaStatus(status)
+
+
 # cudaGetSymbolAddress
+# extern __host__ cudaError_t CUDARTAPI cudaGetSymbolAddress(void **devPtr, const char *symbol);
+_cudaGetSymbolAddress = libcudart.cudaGetSymbolAddress
+_cudaGetSymbolAddress.restype = error_t
+_cudaGetSymbolAddress.argtypes = [POINTER(c_void_p), c_char_p]
+
+def getSymbolAddress(symbol):
+    _checkCharp('symbol', symbol)
+    devPtr = c_void_p(0)
+    status = _cudaGetSymbolAddress(byref(devPtr), symbol)
+    _checkCudaStatus(status)
+    return devPtr
+
+
 # cudaGetSymbolSize
+# extern __host__ cudaError_t CUDARTAPI cudaGetSymbolSize(size_t *size, const char *symbol);
+_cudaGetSymbolSize = libcudart.cudaGetSymbolSize
+_cudaGetSymbolSize.restype = error_t
+_cudaGetSymbolSize.argtypes = [POINTER(c_size_p), c_char_p]
+
+def getSymbolSize(symbol):
+    _checkCharp('symbol', symbol)
+    size = c_size_t(0)
+    status = _cudaGetSymbolSize(byref(size), symbol)
+    _checkCudaStatus(status)
+    return size.contents.value
 
 #----------------------------------------------------------------------------
 # D.4 Texture Reference Management
@@ -458,30 +702,88 @@ _cudaGetChannelDesc.restype = error_t
 _cudaGetChannelDesc.argtypes = [POINTER(ChannelFormatDesc), POINTER(CudaArray)]
 
 def getChannelDesc(arrayPtr):
-    assert isinstance(arrayPtr, POINTER(CudaArray)), "array must be a POINTER(CudaArray)"
+    _checkPointerCudaArray('arrayPtr', arrayPtr)
     cd = ChannelFormatDesc()
     status = _cudaGetChannelDesc(byref(cd), arrayPtr)
     _checkCudaStatus(status)
     return cd
 
-# These appear to require templated code...
 # cudaGetTextureReference
+# extern __host__ cudaError_t CUDARTAPI cudaGetTextureReference(
+#     const struct textureReference **texref, const char *symbol);
+
 # cudaBindTexture
+# extern __host__ cudaError_t CUDARTAPI cudaBindTexture(size_t *offset, 
+#     const struct textureReference *texref, const void *devPtr, 
+#     const struct cudaChannelFormatDesc *desc, size_t size __dv(UINT_MAX));
+
 # cudaBindTextureToArray
+# extern __host__ cudaError_t CUDARTAPI cudaBindTextureToArray(
+#     const struct textureReference *texref, const struct cudaArray *array, 
+#     const struct cudaChannelFormatDesc *desc);
+
 # cudaUnbindTexture
+# extern __host__ cudaError_t CUDARTAPI cudaUnbindTexture(
+#     const struct textureReference *texref);
+
 # cudaGetTextureAlignmentOffset
+# extern __host__ cudaError_t CUDARTAPI cudaGetTextureAlignmentOffset(
+#     size_t *offset, const struct textureReference *texref);
+
 
 #----------------------------------------------------------------------------
 # D.5 Execution Control
 #----------------------------------------------------------------------------
 
+# While these have been wrapped, I am not sure how they are used.  The
+# documentation from NVIDIA seems very limited on the subject.
+
 # cudaConfigureCall
-# cudaLaunch
+# extern __host__ cudaError_t CUDARTAPI cudaConfigureCall(dim3 gridDim, 
+#     dim3 blockDim, size_t sharedMem __dv(0), int tokens __dv(0));
+_cudaConfigureCall = libcudart.cudaConfigureCall
+_cudaConfigureCall.restype = error_t
+_cudaConfigureCall.argtypes = [dim3, dim3, c_size_t, c_int]
+
+def cudaConfigureCall(gridDim, blockDim, sharedMem=0, tokens=0):
+    gd3 = _convertToDim3(gridDim)
+    bd3 = _convertToDim3(blockDim)
+    _checkSizet('sharedMem', sharedMem)
+    _checkInt('tokens', tokens)
+    status = _cudaConfigureCall(gd3, bd3, sharedMem, tokens)
+    _checkCudaStatus(status)
+
+
 # cudaSetupArgument
+# extern __host__ cudaError_t CUDARTAPI cudaSetupArgument(const void *arg, 
+#     size_t size, size_t offset);
+_cudaSetupArgument = libcudart.cudaSetupArgument
+_cudaSetupArgument.restype = error_t
+_cudaSetupArgument.argtypes = [c_void_p, c_size_t, c_size_t]
+
+def cudaSetupArgument(arg, size, offset):
+    arg = _castToVoidp('arg', arg)
+    _checkSizet('size', size)
+    _checkSizet('offset', offset)
+    status = _cudaSetupArgument(arg, size, offset)
+    _checkCudaStatus(status)
+
+
+# cudaLaunch
+# extern __host__ cudaError_t CUDARTAPI cudaLaunch(const char *symbol);
+_cudaLaunch = libcudart.cudaLaunch
+_cudaLaunch.restype = error_t
+_cudaLaunch.argtypes = [c_char_p]
+
+def launch(symbol):
+    _checkCharp('symbol', symbol)
+    status = _cudaLaunch(symbol)
+    _checkCudaStatus(status)
 
 #----------------------------------------------------------------------------
 # D.6 OpenGL Interoperability
 #----------------------------------------------------------------------------
+# Anyone want to wrap these?
 
 # cudaGLRegisterBufferObject
 # cudaGLMapBufferObject
@@ -491,6 +793,7 @@ def getChannelDesc(arrayPtr):
 #----------------------------------------------------------------------------
 # D.7 Direct3D Interoperability
 #----------------------------------------------------------------------------
+# Anyone running Windows want to wrap these?
 
 # cudaD3D9Begin
 # cudaD3D9End
