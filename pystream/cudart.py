@@ -125,12 +125,20 @@ class CudaArray(Structure):
     _fields = []
 
 # enum for the f attribute of ChannelFormatDesc
-cudaChannelFormatKindSigned = 0
-cudaChannelFormatKindUnsigned = 1
-cudaChannelFormatKindFloat = 2
+channelFormatKindSigned = 0
+channelFormatKindUnsigned = 1
+channelFormatKindFloat = 2
  
 # cudaChannelFormatDesc
 class ChannelFormatDesc(Structure):
+
+    def __init__(self, x=32, y=0, z=0, w=0, f=channelFormatKindSigned):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.w = w
+        self.f = f
+
     _fields_ = [("x", c_int),
                 ("y", c_int),
                 ("z", c_int),
@@ -379,7 +387,7 @@ _cudaFreeArray.restype = error_t
 _cudaFreeArray.argtypes = [POINTER(CudaArray)]
 
 def freeArray(arrayPtr):
-    _checkPointerCudeArray('arrayPtr', arrayPtr)
+    _checkPointerCudaArray('arrayPtr', arrayPtr)
     status = _cudaFreeArray(arrayPtr)
     _checkCudaStatus(status)    
 
@@ -416,7 +424,7 @@ _cudaMemset.argtypes = [c_void_p, c_int, c_size_t]
 
 def memset(devPtr, value, count):
     devPtr = _castToVoidp('devPtr', devPtr)
-    _checkInt('value', value)
+    # Don't check value as it could be a 32bit hex number, which is not always an int.
     _checkSizet('count', count)
     status = _cudaMemset(devPtr, value, count)
     _checkCudaStatus(status)
@@ -442,10 +450,9 @@ _cudaMemcpy = libcudart.cudaMemcpy
 _cudaMemcpy.restype = error_t
 _cudaMemcpy.argtypes = [c_void_p, c_void_p, c_size_t, c_int]
 
-def cudaMemcpy(dstPtr, srcPtr, count, kind):
+def memcpy(dstPtr, srcPtr, count, kind):
     dstPtr = _castToVoidp('dstPtr', dstPtr)
     srcPtr = _castToVoidp('srcPtr', srcPtr)
-    _checkVoidp('srcPtr', srcPtr)
     _checkSizet('count', count)
     _checkInt('kind', kind)
     _checkMemcpyKind('kind', kind)
@@ -459,7 +466,7 @@ _cudaMemcpy2D.restype = error_t
 _cudaMemcpy2D.argtypes = [c_void_p, c_size_t, c_void_p, c_size_t, 
     c_size_t, c_size_t, c_int]
 
-def cudaMemcpy2D(dst, dpitch, src, spitch, width, height, kind):
+def memcpy2D(dst, dpitch, src, spitch, width, height, kind):
     dst = _castToVoidp('dst', dst)
     _checkSizet('dpitch', dpitch)
     src = _castToVoidp('src', src)
@@ -814,7 +821,7 @@ _cudaGetLastError = libcudart.cudaGetLastError
 _cudaGetLastError.restype = error_t
 _cudaGetLastError.argtypes = []
 
-def cudaGetLastError():
+def getLastError():
     return _cudaGetLastError()
 
 # cudaGetErrorString
