@@ -158,6 +158,9 @@ class InvalidDim3(Exception):
 class dim3(Structure):
     
     def __init__(self, x, y=1, z=1):
+        self.x = x
+        self.y = y
+        self.z = z
     
     _fields = [('x', c_uint),
                ('y', c_uint),
@@ -668,7 +671,7 @@ def getSymbolAddress(symbol):
 # extern __host__ cudaError_t CUDARTAPI cudaGetSymbolSize(size_t *size, const char *symbol);
 _cudaGetSymbolSize = libcudart.cudaGetSymbolSize
 _cudaGetSymbolSize.restype = error_t
-_cudaGetSymbolSize.argtypes = [POINTER(c_size_p), c_char_p]
+_cudaGetSymbolSize.argtypes = [POINTER(c_size_t), c_char_p]
 
 def getSymbolSize(symbol):
     _checkCharp('symbol', symbol)
