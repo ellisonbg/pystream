@@ -1,6 +1,6 @@
 """ Testing a more Pythonic interface to the FFT libraries.
 
-Still not working.
+NOTE: works, but segfaults on exit.
 """
 
 
@@ -122,8 +122,7 @@ def fft(a, out=None):
 
     func(*args)
 
-    # XXX: there's an extra temporary here.
-    out.flat[:] = output.toArray()
+    output.toArray(out)
 
     return out
 
