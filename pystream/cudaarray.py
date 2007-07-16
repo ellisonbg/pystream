@@ -50,10 +50,19 @@ class CudaArray(object):
             self.data = None
             self.allocated = False
 
-    def toArray(self):
+    def toArray(self, a=None):
         if not self.allocated:
             raise Exception("Must first allocate")
-        a = numpy.empty(self.size, dtype=self.dtype)
+        if a is None:
+            a = numpy.empty(self.size, dtype=self.dtype)
+        else:
+            # Check that the given array is appropriate.
+            if a.size != self.size:
+                raise ValueError("need an array of size %s; got %s" % (self.size, a.size))
+            if a.dtype.name != self.dtype.name:
+                # XXX: compare dtypes directly? issubdtype?
+                raise ValueError("need an array of dtype %r; got %r" % (self.dtype, a.dtype))
+
         cudart.memcpy(a.ctypes.data, self.data, self.nbytes,
             cudart.memcpyDeviceToHost)
         return a
@@ -74,7 +83,7 @@ class RawCudaArray(CudaArray):
         self.alloc()
 
 class CudaArrayFromArray(CudaArray):
-    def __init__(self, a, dtype):
+    def __init__(self, a, dtype=None):
         a = numpy.ascontiguousarray(a, dtype=dtype)
         CudaArray.__init__(self, a.size, a.dtype)
         self.alloc()
