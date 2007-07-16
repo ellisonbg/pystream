@@ -17,7 +17,9 @@ import ctypes
 
 # cuda <-> dtype conversion
 cudaDtypes = {'float32': ctypes.c_float,
-              'int32': ctypes.c_int}
+              'int32': ctypes.c_int,
+              'complex64': ctypes.c_float*2,
+             }
 
 class CudaArray(object):
 
@@ -39,12 +41,12 @@ class CudaArray(object):
         return ct
 
     def alloc(self):
-        self.data = cudart.cudaMalloc(self.nbytes, self.ctype)
+        self.data = cudart.malloc(self.nbytes, self.ctype)
         self.allocated = True
 
     def free(self):
         if self.allocated:
-            cudart.cudaFree(self.data)
+            cudart.free(self.data)
             self.data = None
             self.allocated = False
 
