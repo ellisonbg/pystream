@@ -3,13 +3,13 @@
 NOTE: works, but segfaults on exit.
 """
 
-
+import atexit
 from ctypes import POINTER, c_float
 
 import numpy as np
 
 from pystream.cudaarray import RawCudaArray, CudaArrayFromArray
-from pystream import cufft
+from pystream import cudart, cufft
 
 
 c_complex = c_float*2
@@ -30,6 +30,9 @@ class PlanCache(object):
 
         # The list of handles in order of most recent use.
         self.handles = []
+
+        # Make sure we clean up before shutting down the program.
+        atexit.register(self.cleanup)
 
     def lookup(self, dims, type_, batch=None):
         """ Look up a plan in the cache or create one.
@@ -78,7 +81,15 @@ class PlanCache(object):
 
         return plan
 
-    # XXX: __del__ ?
+    def cleanup(self):
+        """ Destroy all of the handles in the cache.
+        """
+        self.handle_map.clear()
+        self.handle_map_inverse.clear()
+        while self.handles:
+            plan = self.handles.pop()
+            cufft.cufftDestroy(plan)
+
 
 _plan_cache = PlanCache()
 
@@ -121,8 +132,11 @@ def fft(a, out=None):
         args += (cufft.CUFFT_FORWARD,)
 
     func(*args)
+    cudart.threadSynchronize()
 
     output.toArray(out)
+    input.free()
+    output.free()
 
     return out
 
@@ -132,3 +146,4 @@ if __name__ == '__main__':
     f = fft(a)
     print f
     print np.fft.fft(a)
+    cudart.threadExit()
