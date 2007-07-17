@@ -2,6 +2,7 @@ from pystream import cublas
 from ctypes import *
 import numpy
 cublas.cublasInit()
+cudart.threadExit()
 dp = cublas.cublasAlloc(10,c_int)
 a = numpy.arange(10)
 cublas.cublasSetVector(10,c_int,a.ctypes.data,1,dp,1)
