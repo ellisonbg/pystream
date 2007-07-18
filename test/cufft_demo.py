@@ -122,14 +122,17 @@ def fft(a, out=None):
         if out.shape != a.shape:
             raise ValueError("output must have the same shape as the input")
 
+    # Since we're always copying to memory on the card, we can always do
+    # C2C transforms in-place!
     input = CudaArrayFromArray(a)
-    output = RawCudaArray(a.size, np.csingle)
-    args = (plan, input.data, output.data)
     if type_ == cufft.CUFFT_R2C:
+        output = RawCudaArray(a.size, np.csingle)
+        args = (plan, input.data, output.data)
         func = cufft.cufftExecR2C
     else:
+        output = input
+        args = (plan, input.data, input.data, cufft.CUFFT_FORWARD)
         func = cufft.cufftExecC2C
-        args += (cufft.CUFFT_FORWARD,)
 
     func(*args)
     cudart.threadSynchronize()
@@ -140,10 +143,70 @@ def fft(a, out=None):
 
     return out
 
+def ifft(a, out=None):
+    """ Do a 1D inverse FFT.
+    """
+    a = np.ascontiguousarray(a)
+    a = a.astype(np.csingle)
+    type_ = cufft.CUFFT_C2C
+    ct = c_complex
+    nx = a.shape[-1]
+    if a.ndim > 1:
+        # Batch up many 1D transforms.
+        batch = np.size // nx
+    else:
+        batch = None
+    plan = _plan_cache.lookup(a.shape, type_, batch)
+
+    if out is None:
+        out = np.empty(a.shape, np.csingle)
+    else:
+        if not isinstance(out.dtype , np.csingle):
+            raise ValueError("output must be single-precision complex")
+        if out.shape != a.shape:
+            raise ValueError("output must have the same shape as the input")
+
+    # Since we're always copying to memory on the card, we can always do
+    # C2C transforms in-place!
+    input = CudaArrayFromArray(a)
+    args = (plan, input.data, input.data)
+    func = cufft.cufftExecC2C
+    args += (cufft.CUFFT_INVERSE,)
+
+    func(*args)
+    cudart.threadSynchronize()
+
+    input.toArray(out)
+    input.free()
+    input.free()
+
+    return out
+
 
 if __name__ == '__main__':
-    a = np.arange(16, dtype=np.csingle)
+    import sys
+    import time
+
+    if sys.platform == 'win32':
+        now = time.clock
+    else:
+        now = time.time
+
+    cudart.setDevice(0)
+    n = 2 ** 20
+    a = np.random.random(n).astype(np.csingle)
+
+    t0 = now()
     f = fft(a)
-    print f
-    print np.fft.fft(a)
-    cudart.threadExit()
+    a2 = ifft(f) / n  # must normalize ourselves
+    dt = now() - t0
+    print 'CUDA FFT completed in %s s.' % dt
+    print 'L1 error: %s' % np.absolute(a2 - a).sum()
+
+    t0 = now()
+    f = np.fft.fft(a)
+    a2 = np.fft.ifft(f)
+    dt = now() - t0
+    print 'numpy FFT completed in %s s.' % dt
+    print 'L1 error: %s' % np.absolute(a2 - a).sum()
+
