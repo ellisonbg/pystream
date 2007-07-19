@@ -4,6 +4,7 @@ Read the comments below for building the kernel. It uses an example kernel from
 the CUDA SDK.
 """
 
+import atexit
 import ctypes
 
 import numpy as np
@@ -23,10 +24,14 @@ HC = HA  # Matrix C height
 # Create this with the following commands from the CUDA SDK projects/matrixMul
 # directory:
 #   $ nvcc -Xcompiler="-fPIC" -c -o matrixMul_kernels.cu_o matrixMul_kernels.cu
-#   $ g++ -shared -o libmatrixMul.so matrixMul_kernels.cu_o
+#   $ g++ -shared -L/usr/local/cuda/lib -lcudart -lcuda -o libmatrixMul.so matrixMul_kernels.cu_o
 #   $ cp libmatrixMul.so ~/src/pystream/test/
 print 'Loading kernel'
-matrixMul = kernels.KernelGetter(ctypes.cdll.LoadLibrary("./libmatrixMul.so"))
+dll = ctypes.cdll.LoadLibrary("./libmatrixMul.so")
+# Register the finalizer. This seems to get rid of the segfault-on-exit that
+# I've been seeing.
+atexit.register(dll._fini)
+matrixMul = kernels.KernelGetter(dll)
 
 
 nA = np.random.random(size=(HA, WA)).astype(np.float32)
