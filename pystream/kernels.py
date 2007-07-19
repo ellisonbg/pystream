@@ -69,6 +69,8 @@ class Kernel(object):
     def __call__(self, *args):
         """ Call the kernel as configured.
         """
-        err = cudart.cudaConfigureCall(self.gridDim, self.blockDim, self.sharedMem, self.tokens)
-        cudart._checkCudaStatus(err)
+        cudart.cudaConfigureCall(self.gridDim, self.blockDim, self.sharedMem, self.tokens)
         self.funcptr(*args)
+        # Check to make sure we didn't get an error.
+        err = cudart.getLastError()
+        cudart._checkCudaStatus(err)
