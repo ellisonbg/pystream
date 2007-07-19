@@ -1,4 +1,4 @@
-from pystream import cublas
+from pystream import cublas,cudart
 from ctypes import *
 import numpy
 cublas.cublasInit()
