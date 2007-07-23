@@ -107,12 +107,14 @@ def fft(a, out=None):
         type_ = cufft.CUFFT_R2C
         ct = c_float
     nx = a.shape[-1]
-    if a.ndim > 1:
-        # Batch up many 1D transforms.
-        batch = np.size // nx
-    else:
+    if a.ndim == 1:
         batch = None
-    plan = _plan_cache.lookup(a.shape, type_, batch)
+    elif a.ndim == 2:
+        # Batch up many 1D transforms.
+        batch = a.shape[0]
+    else:
+        raise ValueError("only 1and 2 dimensions are supported")
+    plan = _plan_cache.lookup((nx,), type_, batch)
 
     if out is None:
         out = np.empty(a.shape, np.csingle)
@@ -151,12 +153,14 @@ def ifft(a, out=None):
     type_ = cufft.CUFFT_C2C
     ct = c_complex
     nx = a.shape[-1]
-    if a.ndim > 1:
-        # Batch up many 1D transforms.
-        batch = np.size // nx
-    else:
+    if a.ndim == 1:
         batch = None
-    plan = _plan_cache.lookup(a.shape, type_, batch)
+    elif a.ndim == 2:
+        # Batch up many 1D transforms.
+        batch = a.shape[0]
+    else:
+        raise ValueError("only 1and 2 dimensions are supported")
+    plan = _plan_cache.lookup((nx,), type_, batch)
 
     if out is None:
         out = np.empty(a.shape, np.csingle)
@@ -193,8 +197,9 @@ if __name__ == '__main__':
         now = time.time
 
     cudart.setDevice(0)
-    n = 2 ** 20
-    a = np.random.random(n).astype(np.csingle)
+    n = 2 ** 18
+    batch = 16
+    a = np.random.random((batch,n)).astype(np.csingle)
 
     t0 = now()
     f = fft(a)
