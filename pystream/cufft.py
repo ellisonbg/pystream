@@ -14,11 +14,16 @@
 # Imports
 #----------------------------------------------------------------------------
 
+import platform
 import ctypes
 from ctypes import byref, c_int, POINTER
 
-
-libcufft = ctypes.cdll.LoadLibrary('libcufft.so')
+if platform.system() == "Microsoft":
+    libcufft = ctypes.windll.LoadLibrary('cucufft.dll')
+elif platform.system()=="Darwin":
+    libcufft = ctypes.cdll.LoadLibrary('/usr/local/cuda/lib/libcufft.dylib')
+else:
+    libcufft = ctypes.cdll.LoadLibrary('libcufft.so')
 
 # Definitions
 

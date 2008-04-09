@@ -11,9 +11,15 @@
 # Imports
 #----------------------------------------------------------------------------
 
+import platform
 from ctypes import *
 
-libcublas = cdll.LoadLibrary('libcublas.so')
+if platform.system() == "Microsoft":
+    libcublas = ctypes.windll.LoadLibrary('cublas.dll')
+elif platform.system()=="Darwin":
+    libcublas = ctypes.cdll.LoadLibrary('/usr/local/cuda/lib/libcublas.dylib')
+else:
+    libcublas = ctypes.cdll.LoadLibrary('libcublas.so')
 
 # defines
 

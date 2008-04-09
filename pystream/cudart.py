@@ -11,9 +11,15 @@
 # Imports
 #----------------------------------------------------------------------------
 
+import platform
 from ctypes import *
 
-libcudart = cdll.LoadLibrary('libcudart.so')
+if platform.system() == "Microsoft":
+    libcudart = windll.LoadLibrary('cudart.dll')
+elif platform.system()=="Darwin":
+    libcudart = ctypes.cdll.LoadLibrary('/usr/local/cuda/lib/libcudart.dylib')
+else:
+    libcudart = cdll.LoadLibrary('libcudart.so')
 
 #----------------------------------------------------------------------------
 # Global constants and exceptions
