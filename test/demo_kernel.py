@@ -46,7 +46,7 @@ threads = (BLOCK_SIZE, BLOCK_SIZE)
 grid = (WC // BLOCK_SIZE, HC // BLOCK_SIZE)
 
 print 'Calling kernel'
-Mul = matrixMul.matrixMul(threads, grid)
+Mul = matrixMul.matrixMul(grid, threads)
 Mul(dC.data, dA.data, dB.data, WA, WB)
 
 print 'Collecting results'
