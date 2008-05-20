@@ -12,7 +12,7 @@ setup(
     
     zip_safe = False,
 
-    author = "Brian Granger, Tech-X Corporation",
+    author = "Tech-X Corporation",
     author_email = "ellisonbg@gmail.com",
     description = "Stream and GPU computing in Python",
     license = "BSD",

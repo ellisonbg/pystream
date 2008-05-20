@@ -60,6 +60,9 @@ errorDict = {
     29: 'CudartUnloadingError',
     30: 'UnknownError',
     31: 'NotYetImplementedError',
+    32: 'MemoryValueTooLargeError',
+    33: 'InvalidResourceHandleError',
+    34: 'NotReadyError',
     0x7f: 'StartupFailureError',
     10000: 'ApiFailureBaseError'}
 
