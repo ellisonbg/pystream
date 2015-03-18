@@ -1,0 +1,5 @@
+PyStream combines the power and convenience of Python with the high performance of modern Graphics Processing Units (GPUs).  The focus of PyStream is on NVIDIA GPUs, such as the GeForce 8800 and Tesla series, that support the Compute Unified Device Architecture (CUDA) toolkit.
+
+With PyStream, the CUDA libraries, including the CUDA BLAS and FFT libraries, can be called from directly from Python.  Data can be moved back and forth seamlessly between the GPU and Python objects (NumPy arrays) on the CPU.
+
+Initial development of PyStream was done by Tech-X Corporation.  Tech-X Corporation has shifted its efforts to a new GPU related project, called [GPULib](http://www.txcorp.com/technologies/GPULib/index.php), that has a higher level API than PyStream and also supports other languages other than Python.  Because of this change, PyStream is no longer being actively developed.  However, PyStream will remain available under the BSD license.
